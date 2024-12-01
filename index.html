@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Album</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        img {
+            width: 200px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Photo Album</h1>
+
+    <!-- Search Form -->
+    <form id="search-form">
+        <input type="text" id="search-query" placeholder="Search for photos...">
+        <button type="submit">Search</button>
+    </form>
+    <div id="search-results"></div>
+
+    <hr>
+
+    <!-- Upload Form -->
+    <form id="upload-form">
+        <input type="file" id="photo-file" required>
+        <input type="text" id="custom-labels" placeholder="Enter custom labels, e.g., beach,sunset">
+        <button type="submit">Upload</button>
+    </form>
+    <div id="upload-message"></div>
+
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/apigClient.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/apiGatewayCore/apiGatewayClient.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/apiGatewayCore/sigV4Client.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/apiGatewayCore/simpleHttpClient.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/apiGatewayCore/utils.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/axios/dist/axios.standalone.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/CryptoJS/rollups/crypto-js.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/CryptoJS/rollups/sha256.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/url-template/url-template.js"></script>  
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/CryptoJS/components/hmac.js"></script> 
+    <script src="https://frontend-bucket-photos-b1.s3.us-east-1.amazonaws.com/apiGateway-js-sdk/lib/CryptoJS/components/enc-base64.js"></script> 
+
+    <script>
+        
+        // Initialize API Gateway SDK
+        const apigClient = apigClientFactory.newClient({
+            apiKey: 'zAnp4MyiZG3mQmkuz60FI2kGAzEKxyZ67prXatH6',
+            invokeUrl: 'https://tlla4ngoch.execute-api.us-east-1.amazonaws.com/dev'
+        });
+
+        // Search functionality
+        document.getElementById('search-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const query = document.getElementById('search-query').value;
+            try {
+                const response = await apigClient.searchGet({ q: query }, {}, {});
+                displayResults(response.data);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        // Upload functionality
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('photo-file');
+            const customLabels = document.getElementById('custom-labels').value;
+            const file = fileInput.files[0];
+
+            const params = {
+                bucket: 'frontend-bucket-photos-b1',
+                key: file.name,
+                'Content-Type': file.type,
+                'x-amz-meta-customLabels': customLabels,
+            };
+
+            const additionalParams = {
+                headers: {
+                    'Content-Type': file.type,
+                    'x-amz-meta-customLabels': customLabels,
+                },
+                body: file,
+            };
+
+            try {
+                await apigClient.photosPut(params, additionalParams);
+                document.getElementById('upload-message').textContent = 'Upload successful!';
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('upload-message').textContent = 'Upload failed.';
+            }
+        });
+
+        // Display search results
+        function displayResults(results) {
+            const container = document.getElementById('search-results');
+            container.innerHTML = '';
+            results.forEach((photo) => {
+                const img = document.createElement('img');
+                img.src = `https://photos-album-bucket-b2.s3.us-east-1.amazonaws.com/${photo.objectKey}`;
+                container.appendChild(img);
+            });
+        }
+    </script>
+
+</body>
+</html>
