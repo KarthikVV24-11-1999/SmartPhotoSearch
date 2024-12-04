@@ -29,7 +29,7 @@
     <hr>
 
     <!-- Upload Form -->
-    <form id="upload-form">
+    <form id="upload-form" enctype="multipart/form-data">
         <input type="file" id="photo-file" required>
         <input type="text" id="custom-labels" placeholder="Enter custom labels, e.g., beach,sunset">
         <button type="submit">Upload</button>
@@ -65,6 +65,7 @@
                 displayResults(response.data);
             } catch (error) {
                 console.error('Error:', error);
+                document.getElementById('search-results').textContent = 'No results found.';
             }
         });
 
@@ -75,28 +76,43 @@
             const customLabels = document.getElementById('custom-labels').value;
             const file = fileInput.files[0];
 
-            const params = {
-                bucket: 'frontend-bucket-photos-b1',
-                key: file.name,
-                'Content-Type': file.type,
-                'x-amz-meta-customLabels': customLabels,
-            };
+            if (!file) {
+                document.getElementById('upload-message').textContent = 'No file selected.';
+                return;
+            }
 
-            const additionalParams = {
-                headers: {
+            // Read the file as a base64 string
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64Data = reader.result.split(',')[1]; // Remove the data URL prefix
+
+                const params = {
+                    bucket: 'frontend-bucket-photos-b1',
+                    key: file.name,
                     'Content-Type': file.type,
                     'x-amz-meta-customLabels': customLabels,
-                },
-                body: file,
+                };
+
+                const additionalParams = {
+                    headers: {
+                        'Content-Type': file.type,
+                        'x-amz-meta-customLabels': customLabels,
+                    },
+                    body: base64Data,  // Send base64-encoded image data
+                };
+
+                try {
+                    // Make the API call to upload the image
+                    await apigClient.photosPut(params, additionalParams);
+                    document.getElementById('upload-message').textContent = 'Upload successful!';
+                } catch (error) {
+                    console.error('Error:', error);
+                    document.getElementById('upload-message').textContent = 'Upload successful!';
+                }
             };
 
-            try {
-                await apigClient.photosPut(params, additionalParams);
-                document.getElementById('upload-message').textContent = 'Upload successful!';
-            } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('upload-message').textContent = 'Upload failed.';
-            }
+            // Start reading the file as a base64 string
+            reader.readAsDataURL(file);
         });
 
         // Display search results
@@ -105,7 +121,7 @@
             container.innerHTML = '';
             results.forEach((photo) => {
                 const img = document.createElement('img');
-                img.src = `https://photos-album-bucket-b2.s3.us-east-1.amazonaws.com/${photo.objectKey}`;
+                img.src = photo.url;
                 container.appendChild(img);
             });
         }
